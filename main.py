@@ -1,59 +1,129 @@
+import csv
 from selenium import webdriver
-from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
-import pandas as pd
+import traceback
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
-# Configurar Selenium
-options = webdriver.ChromeOptions()
-options.add_argument("--headless")  
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
+def extract_product_info_dia():
+    # Configuración del servicio del driver
+    service = Service(ChromeDriverManager().install())
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")  # Ejecutar el navegador en modo headless (sin interfaz gráfica)
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
-# URLs de supermercados
-supermercados_Url = {
-    "DIA": "https://www.supermercadosdia.com.ar/",
-    "COTO": "https://www.cotodigital3.com.ar/",
-    "Carrefour": "https://www.carrefour.com.ar/"
-}
-
-productos_lista = []
-
-# Iniciar el navegador
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-
-for nombre_supermercado, url in supermercados_Url.items():
-    print(f"Extrayendo datos de {nombre_supermercado}...")
-
-    driver.get(url)
+    # Inicia el navegador con el servicio y las opciones
+    driver = webdriver.Chrome(service=service, options=options)
 
     try:
-        # Esperar que los productos carguen (AJUSTA LA CLASE SEGÚN EL HTML)
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "vtex-flex-layout-0-x-flexColChild pb0"))  # CAMBIA ESTO CON LA CLASE CORRECTA
-        )
-
-        productos = driver.find_elements(By.CLASS_NAME, "vtex-flex-layout-0-x-flexCol  ml0 mr0 pl0 pr0      flex flex-column h-100 w-100")  # CAMBIA ESTO CON LA CLASE CORRECTA
+        # URL del producto en Día
+        url = "https://diaonline.supermercadosdia.com.ar/galletitas-pepitos-con-chips-de-chocolate-357g-pack-x-3-ud-de-119-gr-271632/p"
+        driver.get(url)
         
-        for producto in productos:
-            try:
-                nombre = producto.find_element(By.CLASS_NAME, "vtex-product-summary-2-x-nameContainer flex items-start justify-center pv6").text.strip()  # CAMBIA ESTO
-                precio = producto.find_element(By.CLASS_NAME, "product-price").text.strip()  # CAMBIA ESTO
-                enlace = producto.find_element(By.CLASS_NAME, "product-link").get_attribute("href")  # CAMBIA ESTO
+        wait = WebDriverWait(driver, 60)
+        
+        # Extraemos el nombre del producto, el precio y la URL
+        product_title = wait.until(EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'vtex-store-components-3-x-productBrand vtex-store-components-3-x-productBrand--productNamePdp ')]"))).text
+        product_price = driver.find_element(By.XPATH, "//span[contains(@class, 'diaio-store-5-x-sellingPrice')]").text
+        product_url = driver.current_url
 
-                productos_lista.append([nombre_supermercado, nombre, precio, enlace])
-            except Exception as e:
-                print(f"Error extrayendo producto: {e}")
-                continue
+        # Guardamos la información en el CSV
+        with open('productos.csv', mode='a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(["Supermercado", "Producto", "Precio", "URL"])  # Encabezado del CSV
+            writer.writerow(["DIA", product_title, product_price, product_url])
+    
     except Exception as e:
-        print(f"No se encontraron productos en {nombre_supermercado}: {e}")
+        print(f"Error al extraer la información de DIA: {e}")
+        traceback.print_exc()
+    
+    finally:
+        driver.quit()
 
-driver.quit()
+def extract_product_info_coto():
+    # Configuración del servicio del driver
+    service = Service(ChromeDriverManager().install())
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")  # Ejecutar el navegador en modo headless (sin interfaz gráfica)
 
-# Guardar datos en CSV
-df = pd.DataFrame(productos_lista, columns=["Supermercado", "Producto", "Precio", "URL"])
-df.to_csv("productos_supermercados.csv", index=False, encoding="utf-8")
+    # Inicia el navegador con el servicio y las opciones
+    driver = webdriver.Chrome(service=service, options=options)
 
-print("Datos guardados en 'productos_supermercados.csv'")
+    try:
+        # URL del producto en Coto
+        url = "https://www.cotodigital.com.ar/sitios/cdigi/productos/resaltador-filgo-lighter-fine-varios-colores-2-unidades/_/R-00268457-00268457-200"
+        driver.get(url)
+        
+        wait = WebDriverWait(driver, 30)
+        
+        # Extraemos el nombre del producto, el precio y la URL
+        product_title = wait.until(EC.presence_of_element_located((By.XPATH, "//h2[contains(@class, 'title text-dark')]"))).text
+        product_price = driver.find_element(By.XPATH, "//var[contains(@class, 'price h3')]").text
+        product_url = driver.current_url
+        
+        # Guardamos la información en el CSV
+        with open('productos.csv', mode='a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(["Supermercado", "Producto", "Precio", "URL"])  # Encabezado del CSV
+            writer.writerow(["COTO", product_title, product_price, product_url])
+
+    except Exception as e:
+        print(f"Error al extraer la información de Coto: {e}")
+        traceback.print_exc()
+
+    finally:
+        driver.quit()
+
+def extract_product_info_carrefour():
+    # Configuración del servicio del driver
+    service = Service(ChromeDriverManager().install())
+    options = webdriver.ChromeOptions()
+
+    # Inicia el navegador con el servicio y las opciones
+    driver = webdriver.Chrome(service=service, options=options)
+
+    try:
+        # URL del producto en Carrefour
+        url = "https://www.carrefour.com.ar/celular-libre-samsung-galaxy-a06-64gb-negro/p"
+        driver.get(url)
+        
+        wait = WebDriverWait(driver, 20)
+
+        # Esperar a que el banner de cookies sea clickeable y cerrarlo
+        cookie_banner = wait.until(EC.element_to_be_clickable((By.ID, 'onetrust-accept-btn-handler')))
+        cookie_banner.click()  # Cierra el banner de cookies
+
+        # Extraemos el nombre del producto, el precio y la URL
+        product_title = wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'span.vtex-breadcrumb-1-x-term'))).text
+        product_price = wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, '.valtech-carrefourar-product-price-0-x-currencyContainer'))).text
+        product_url = driver.current_url
+
+        # Guardamos la información en el CSV
+        with open('productos.csv', mode='a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(["Supermercado", "Producto", "Precio", "URL"])  # Encabezado del CSV
+            writer.writerow(["Carrefour", product_title, product_price, product_url])
+
+    except Exception as e:
+        print(f"Error al extraer la información de Carrefour: {e}")
+        traceback.print_exc()
+
+    finally:
+        driver.quit()
+
+def main():
+    # Crear archivo CSV vacío con encabezado si no existe
+    with open('productos.csv', mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Supermercado", "Producto", "Precio", "URL"])  # Encabezado del CSV
+
+    # Extraer la información de los tres supermercados
+    extract_product_info_dia()
+    extract_product_info_coto()
+    extract_product_info_carrefour()
+
+if __name__ == "__main__":
+    main()
