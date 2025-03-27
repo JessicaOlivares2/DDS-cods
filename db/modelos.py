@@ -29,3 +29,4 @@ class ProductosEnPedidos(SQLModel, table=True):
     pedido_id: str = Field(foreign_key="pedidos.id")
     producto_id: str = Field(foreign_key="productos.id")
     cantidad: int
+
